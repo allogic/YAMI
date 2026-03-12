@@ -13,7 +13,7 @@ mkfs.fat -F32 $drive_name
 mkdir $mount_point
 mount $drive_name $mount_point
 mkdir -p $mount_point/efi/boot
-cp loader.efi $mount_point/efi/boot
+cp loader.efi $mount_point/efi/boot/bootx64.efi
 cp kernel.bin $mount_point
 umount $mount_point
 rm -rf $mount_point
