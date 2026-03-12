@@ -1,4 +1,4 @@
-# ALTOS
+# YAMI
 x64 toy kernel written in C.
 
 ### Prerequisites
