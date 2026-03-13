@@ -1,3 +1,6 @@
 edk2
 
+*.o
+*.elf
+
 drive.img

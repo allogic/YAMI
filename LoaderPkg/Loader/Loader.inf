@@ -21,3 +21,10 @@
 	PrintLib
 	FileHandleLib
 	BaseMemoryLib
+
+[Guids]
+	gEfiFileInfoGuid
+
+[Protocols]
+	gEfiLoadedImageProtocolGuid
+	gEfiSimpleFileSystemProtocolGuid
