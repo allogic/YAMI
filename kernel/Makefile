@@ -18,18 +18,16 @@ SRCS += Kernel.c
 
 OBJS += $(SRCS:.c=.o)
 
-all: kernel.bin
-
 %.o: %.c
 	$(CC) $(CFLAGS) -O0 -g -c $< -o $@
 
-kernel.elf: $(OBJS)
-	$(LD) -Tlinker.ld -o $@ $(OBJS)
+Kernel.elf: $(OBJS)
+	$(LD) -T Linker.ld -o $@ $(OBJS)
 
-kernel.bin: kernel.elf
+Kernel.bin: Kernel.elf
 	$(OBJCOPY) -O binary $< ../$@
 
-clean:
+Clean:
 	rm -rf *.o *.elf
 
-.PHONY: all clean
+.PHONY: Kernel.elf Kernel.bin Clean

@@ -4,7 +4,7 @@ x64 toy kernel written in C.
 ### Prerequisites
 ```
 sudo apt update
-sudo apt install build-essential uuid-dev iasl nasm python3 dosfstools git
+sudo apt install build-essential qemu-system-x86 gdb uuid-dev iasl nasm python3 dosfstools git
 
 sudo ln -s /usr/bin/python3 /usr/bin/python
 ```
