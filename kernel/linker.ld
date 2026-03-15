@@ -1,45 +1,52 @@
-ENTRY(KernelMain)
+ENTRY(KernelStart)
 
 SECTIONS
 {
+	. = 0x0;
+
 	__kernel_start__ = .;
 
 	.text :
 	{
-		. = ALIGN(4096);
 		__text_start__ = .;
+		*(.text.KernelStart)
 		*(.text*)
-		. = ALIGN(4096);
 		__text_end__ = .;
 	}
 
+	. = ALIGN(0x1000);
+
 	.rodata :
 	{
-		. = ALIGN(4096);
 		__rodata_start__ = .;
 		*(.rodata*)
-		. = ALIGN(4096);
 		__rodata_end__ = .;
 	}
 
+	__rodata_init__ = LOADADDR(.rodata);
+
+	. = ALIGN(0x1000);
+
 	.data :
 	{
-		. = ALIGN(4096);
 		__data_start__ = .;
 		*(.data*)
-		. = ALIGN(4096);
 		__data_end__ = .;
 	}
 
+	__data_init__ = LOADADDR(.data);
+
+	. = ALIGN(0x1000);
+
 	.bss (NOLOAD) :
 	{
-		. = ALIGN(4096);
 		__bss_start__ = .;
 		*(.bss*)
 		*(COMMON)
-		. = ALIGN(4096);
 		__bss_end__ = .;
 	}
+
+	. = ALIGN(0x1000);
 
 	__kernel_end__ = .;
 }

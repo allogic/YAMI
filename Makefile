@@ -31,7 +31,7 @@ LoaderRelease:
 	cp edk2/Build/Loader/RELEASE_GCC5/X64/Loader.debug Loader.debug
 
 KernelDebug:
-	cd Kernel && make Clean && make Kernel.bin
+	cd Kernel && make Clean && make Kernel
 
 HardDrive:
 	qemu-img create -f raw DRIVE.IMG 1G
