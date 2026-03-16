@@ -1,17 +1,11 @@
-#include <Uefi.h>
-
-#include <Protocol/SimpleFileSystem.h>
-#include <Protocol/LoadedImage.h>
-#include <Protocol/GraphicsOutput.h>
-
-#include <Guid/FileInfo.h>
-
 #include <Library/PcdLib.h>
 #include <Library/UefiApplicationEntryPoint.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseMemoryLib.h>
+
+#include "Loader.h"
 
 typedef struct FRAME_BUFFER {
   EFI_PHYSICAL_ADDRESS Buffer;
@@ -22,20 +16,22 @@ typedef struct FRAME_BUFFER {
   UINT32 BitsPerPixel;
 } FRAME_BUFFER;
 
-typedef struct BOOT_INFO {
-  EFI_PHYSICAL_ADDRESS KernelAddress;
-  UINT64 KernelSize;
-  FRAME_BUFFER FrameBuffer;
-  EFI_MEMORY_DESCRIPTOR *MemoryMap;
-  UINT64 MemoryMapSize;
+typedef struct MEMORY_MAP {
+  EFI_MEMORY_DESCRIPTOR *Map;
+  UINT64 MapSize;
   UINT64 DescriptorSize;
+} MEMORY_MAP;
+
+typedef struct BOOT_INFO {
+  FRAME_BUFFER FrameBuffer;
+  MEMORY_MAP MemoryMap;
 } BOOT_INFO;
 
 typedef VOID (*KERNEL_START)(BOOT_INFO *);
 
-STATIC EFI_LOADED_IMAGE_PROTOCOL *sLoadedImageProtocol = NULL;
-STATIC EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *sSimpleFileSystemProtocol = NULL;
-STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL *sGraphicsOutputProtocol = NULL;
+EFI_LOADED_IMAGE_PROTOCOL *gLoadedImageProtocol = NULL;
+EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *gSimpleFileSystemProtocol = NULL;
+EFI_GRAPHICS_OUTPUT_PROTOCOL *gGraphicsOutputProtocol = NULL;
 
 STATIC BOOT_INFO sBootInfo = {0};
 
@@ -48,7 +44,7 @@ RetrieveRequiredProtocols(IN EFI_HANDLE ImageHandle) {
   Status = gBS->HandleProtocol(
     ImageHandle,
     &gEfiLoadedImageProtocolGuid,
-    (VOID **)&sLoadedImageProtocol);
+    (VOID **)&gLoadedImageProtocol);
 
   if (EFI_ERROR(Status)) {
     return Status;
@@ -57,16 +53,16 @@ RetrieveRequiredProtocols(IN EFI_HANDLE ImageHandle) {
   Status = gBS->LocateProtocol(
     &gEfiGraphicsOutputProtocolGuid,
     NULL,
-    (VOID **)&sGraphicsOutputProtocol);
+    (VOID **)&gGraphicsOutputProtocol);
 
   if (EFI_ERROR(Status)) {
     return Status;
   }
 
   Status = gBS->HandleProtocol(
-    sLoadedImageProtocol->DeviceHandle,
+    gLoadedImageProtocol->DeviceHandle,
     &gEfiSimpleFileSystemProtocolGuid,
-    (VOID **)&sSimpleFileSystemProtocol);
+    (VOID **)gSimpleFileSystemProtocol);
 
   if (EFI_ERROR(Status)) {
     return Status;
@@ -132,94 +128,11 @@ RetrieveFrameBufferInformation(VOID) {
 STATIC
 EFI_STATUS
 EFIAPI
-LoadFileFromHardDrive(IN EFI_STRING FilePath, OUT EFI_PHYSICAL_ADDRESS *FileAddress, OUT UINT64 *FileSize) {
-  EFI_STATUS Status = EFI_SUCCESS;
-
-  EFI_PHYSICAL_ADDRESS KernelAddress = 0;
-  UINT64 KernelSize = 0;
-
-  EFI_FILE_PROTOCOL *RootFile = NULL;
-
-  Status = sSimpleFileSystemProtocol->OpenVolume(sSimpleFileSystemProtocol, &RootFile);
-
-  if (EFI_ERROR(Status)) {
-    return Status;
-  }
-
-  EFI_FILE_PROTOCOL *KernelFile = NULL;
-
-  Status = RootFile->Open(
-    RootFile,
-    &KernelFile,
-    FilePath,
-    EFI_FILE_MODE_READ,
-    0);
-
-  if (EFI_ERROR(Status)) {
-    return Status;
-  }
-
-  EFI_FILE_INFO *FileInfo = NULL;
-  UINT64 InfoSize = SIZE_OF_EFI_FILE_INFO + 0xFF;
-
-  Status = gBS->AllocatePool(
-    EfiLoaderData,
-    InfoSize,
-    (VOID **)&FileInfo);
-
-  if (EFI_ERROR(Status)) {
-    return Status;
-  }
-
-  Status = KernelFile->GetInfo(
-    KernelFile,
-    &gEfiFileInfoGuid,
-    &InfoSize,
-    FileInfo);
-
-  if (EFI_ERROR(Status)) {
-    return Status;
-  }
-
-  KernelSize = FileInfo->FileSize;
-
-  UINT64 KernelPages = EFI_SIZE_TO_PAGES(KernelSize);
-
-  Status = gBS->AllocatePages(
-    AllocateAnyPages,
-    EfiLoaderData,
-    KernelPages,
-    &KernelAddress);
-
-  if (EFI_ERROR(Status)) {
-    return Status;
-  }
-
-  Status = KernelFile->Read(
-    KernelFile,
-    &KernelSize,
-    (VOID *)KernelAddress);
-
-  return Status;
-}
-
-STATIC
-EFI_STATUS
-EFIAPI
-LoadKernelIntoMemory(VOID) {
-  EFI_STATUS Status = EFI_SUCCESS;
-
-  return Status;
-}
-
-STATIC
-EFI_STATUS
-EFIAPI
 RetrieveMemoryMapAndExitBootServices(IN EFI_HANDLE ImageHandle) {
   EFI_STATUS Status = EFI_SUCCESS;
 
-  EFI_MEMORY_DESCRIPTOR *MemoryMap = NULL;
-  UINT64 MemoryMapSize = 0;
+  EFI_MEMORY_DESCRIPTOR *Map = NULL;
+  UINT64 MapSize = 0;
   UINT64 MapKey = 0;
   UINT64 DescriptorSize = 0;
   UINT32 DescriptorVersion = 0;
@@ -300,6 +213,13 @@ UefiMain(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
   if (EFI_ERROR(Status)) {
     return Status;
   }
+
+  // Load the kernel from the hard drive into memory.
+
+  EFI_PHYSICAL_ADDRESS KernelAddress = 0;
+  UINT64 KernelSize = 0;
+
+  Status = LoadFileFromHardDrive(L"KERNEL.ELF", &KernelAddress, &KernelSize);
 
   // Load the kernel into memory.
 

@@ -2,7 +2,7 @@ ENTRY(KernelStart)
 
 SECTIONS
 {
-	. = 0x0;
+	. = 0x100000;
 
 	__kernel_start__ = .;
 
